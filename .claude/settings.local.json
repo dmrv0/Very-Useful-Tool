@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -m yt_dlp --version)",
+      "Bash(yt-dlp --version)",
+      "Bash(pip show *)",
+      "Bash(python3 -c \"from window import MainWindow; from downloader import DownloadWorker; from pdf_utils import convert_docx_to_pdf; print\\('OK'\\)\")"
+    ]
+  }
+}
