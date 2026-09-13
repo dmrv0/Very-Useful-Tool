@@ -1,1 +1,1 @@
-Convenient tool for CoL stuff. Will be updated once i find out stuff to add.
+Convenient tool for CooL stuff. Will be updated once i find stuff to add.
