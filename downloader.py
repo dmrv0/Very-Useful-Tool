@@ -1,3 +1,4 @@
+import imageio_ffmpeg
 import yt_dlp
 from PyQt6.QtCore import QThread, pyqtSignal
 
@@ -7,10 +8,11 @@ class DownloadWorker(QThread):
     status_msg = pyqtSignal(str)
     finished = pyqtSignal(bool, str)
 
-    def __init__(self, url, output_path):
+    def __init__(self, url, output_path, audio_only=False):
         super().__init__()
         self.url = url
         self.output_path = output_path
+        self.audio_only = audio_only
 
     def _progress_hook(self, d):
         if d['status'] == 'downloading':
@@ -23,26 +25,33 @@ class DownloadWorker(QThread):
                 self.status_msg.emit(f"Downloading... {speed / 1048576:.1f} MB/s")
         elif d['status'] == 'finished':
             self.progress.emit(99)
-            self.status_msg.emit("Merging streams...")
+            self.status_msg.emit("Converting to MP3..." if self.audio_only else "Merging streams...")
 
     def run(self):
         try:
             ydl_opts = {
                 'outtmpl': self.output_path,
-                # bestvideo+bestaudio lets ffmpeg pick the best streams;
+                # prefer H.264 + AAC so the mp4 plays in any default player
+                # (AV1/VP9 often don't); fall back to the best streams otherwise.
                 # merge_output_format converts everything to mp4
-                'format': 'bestvideo+bestaudio/best',
+                'format': 'bestvideo[vcodec^=avc1]+bestaudio[ext=m4a]/bestvideo+bestaudio/best',
                 'merge_output_format': 'mp4',
-                'extractor_args': {
-                    'youtube': {
-                        # tv_embedded is the most reliable client without a PO Token
-                        'player_client': ['tv_embedded'],
-                    }
-                },
+                # bundled ffmpeg, so merging works without a system install
+                'ffmpeg_location': imageio_ffmpeg.get_ffmpeg_exe(),
                 'nocheckcertificate': True,
                 'progress_hooks': [self._progress_hook],
                 'quiet': True,
             }
+            if self.audio_only:
+                # yt-dlp picks the extension, then FFmpegExtractAudio swaps it for .mp3
+                base = self.output_path[:-4] if self.output_path.lower().endswith('.mp3') else self.output_path
+                ydl_opts['outtmpl'] = base + '.%(ext)s'
+                ydl_opts['format'] = 'bestaudio/best'
+                ydl_opts['postprocessors'] = [{
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'mp3',
+                    'preferredquality': '192',
+                }]
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([self.url])
             self.finished.emit(True, "")

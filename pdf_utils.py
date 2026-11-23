@@ -4,6 +4,8 @@ from reportlab.lib.units import cm
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.enums import TA_LEFT
 from docx import Document
+from pypdf import PdfWriter
+from xml.sax.saxutils import escape
 
 
 def convert_docx_to_pdf(docx_path, pdf_path):
@@ -25,7 +27,8 @@ def convert_docx_to_pdf(docx_path, pdf_path):
     )
     story = []
     for para in doc.paragraphs:
-        text = para.text.strip()
+        # Paragraph parses markup, so &, < and > must be escaped
+        text = escape(para.text.strip())
         if not text:
             story.append(Spacer(1, 0.3*cm))
             continue
@@ -35,3 +38,11 @@ def convert_docx_to_pdf(docx_path, pdf_path):
             story.append(Paragraph(text, normal_style))
         story.append(Spacer(1, 0.1*cm))
     pdf.build(story)
+
+
+def merge_pdfs(pdf_paths, out_path):
+    writer = PdfWriter()
+    for path in pdf_paths:
+        writer.append(path)
+    with open(out_path, 'wb') as f:
+        writer.write(f)

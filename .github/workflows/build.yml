@@ -1,0 +1,47 @@
+name: Build Windows exe
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt pyinstaller
+
+      - name: Build exe
+        run: pyinstaller --noconfirm VeryUsefulTool.spec
+
+      - name: Smoke test
+        shell: pwsh
+        run: |
+          if (-not (pyi-archive_viewer --list dist/VeryUsefulTool.exe | Select-String 'ffmpeg')) { throw 'ffmpeg missing from bundle' }
+          $p = Start-Process dist/VeryUsefulTool.exe -PassThru
+          Start-Sleep 20
+          if ($p.HasExited) { throw "exe exited early with code $($p.ExitCode)" }
+          Stop-Process $p
+          'exe size: {0:N1} MB' -f ((Get-Item dist/VeryUsefulTool.exe).Length / 1MB)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VeryUsefulTool
+          path: dist/VeryUsefulTool.exe
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/VeryUsefulTool.exe

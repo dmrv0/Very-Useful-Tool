@@ -1,0 +1,6 @@
+PyQt6
+yt-dlp
+reportlab
+python-docx
+imageio-ffmpeg
+pypdf
